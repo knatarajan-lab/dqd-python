@@ -10,6 +10,9 @@ import numpy as np
 import json
 import datetime
 import argparse
+from sqlalchemy import create_engine
+
+from db import DBMS_NAMES
 
 TEMPLATE_LOADER = FileSystemLoader(searchpath="./sql")
 TEMPLATE_ENV = Environment(loader=TEMPLATE_LOADER)
@@ -34,10 +37,8 @@ class DQD():
     _csv_dir = Path('csv')
 
     def __init__(self,
-                 cdm_schema,
-                 vocab_schema,
                  dbms,
-                 conn_string,
+                 dbms_params,
                  output_folder="output",
                  output_file="result.json",
                  tables_to_include=[],
@@ -57,10 +58,24 @@ class DQD():
         self.tables_to_exclude = tables_to_exclude
         self.check_names = check_names
         self.cdm_version = cdm_version
-        self.dbms = dbms
-        self.conn_string = conn_string
+
+        if dbms == 'bigquery':
+            conn_string = f'bigquery://{dbms_params["project_id"]}'
+            cdm_schema = f'{dbms_params["project_id"]}.{dbms_params["dataset_id"]}'
+            vocab_schema = cdm_schema
+        elif dbms == 'sql_server':
+            conn_string = f'mssql+pyodbc://{dbms_params["user"]}:{dbms_params["passwd"]}@{dbms_params["db_server"]}'
+            cdm_schema = dbms_params['schema']
+            vocab_schema = dbms_params['schema']
+        else:
+            raise ValueError(
+                f'DBMS not recognized. Must be one of: {DBMS_NAMES}')
 
         self.engine = create_engine(conn_string)
+        self.conn_string = conn_string
+        self.dbms = dbms
+        self.cdm_schema = cdm_schema
+        self.vocab_schema = vocab_schema
 
     def execute(self, sql_only=False, write_to_csv=False):
         logging.info('Beginning check execution')
@@ -705,51 +720,18 @@ class DQD():
             json.dump(result, f, indent=4)
 
 
-class BigQueryDQD(DQD):
-
-    def __init__(self,
-                 project_id,
-                 dataset_id,
-                 output_folder="output",
-                 output_file="",
-                 tables_to_include=[],
-                 tables_to_exclude=[
-                     'CONCPT', 'VOCABULARY', 'CONCEPT_ANCESTOR',
-                     'CONCEPT_RELATIONSHIP', 'CONCEPT_CLASS',
-                     'CONCEPT_SYNONYM', 'RELATIONSHIP', 'DOMAIN'
-                 ],
-                 check_names=[],
-                 cdm_version="5.3"):
-
-        cdm_schema = f"{project_id}.{dataset_id}"
-        vocab_schema = f"{project_id}.{dataset_id}"
-        conn_string = "bigquery://{project_id}"
-
-        super().__init__(cdm_schema,
-                         vocab_schema,
-                         DBMS.BIGQUERY,
-                         conn_string,
-                         output_folder=output_folder,
-                         output_file=output_file,
-                         tables_to_include=tables_to_include,
-                         tables_to_exclude=tables_to_exclude,
-                         check_names=check_names,
-                         cdm_version=cdm_version)
-
-
-def main(project_id,
-         dataset_id,
+def main(dbms,
+         dbms_conn_params,
          output_folder,
          check_names=[],
          tables_to_include=[],
          sql_only=False):
 
-    cdm_schema = f'{project_id}.{dataset_id}'
-    dqd = BigQueryDQD(project_id,
-                      dataset_id,
-                      output_folder=output_folder,
-                      check_names=check_names,
-                      tables_to_include=tables_to_include)
+    dqd = DQD(dbms,
+              dbms_conn_params,
+              output_folder=output_folder,
+              check_names=check_names,
+              tables_to_include=tables_to_include)
 
     dqd.execute(sql_only=sql_only, write_to_csv=False)
 
@@ -762,26 +744,97 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=
         'Execute the OHDSI Data Quality Dashboard on an OMOP instance')
-    parser.add_argument('dbms',
-                        help='Database Management System of OMOP instance',
-                        choices=['bigquery', ''])
-    parser.add_argument('project_id', help='BigQuery project id')
-    parser.add_argument('dataset_id', help='BigQuery dataset id')
-    parser.add_argument('output_folder', help='Folder to save DQD output')
-    parser.add_argument('--check_names',
-                        nargs="*",
-                        choices=list(check_descriptions['checkName']),
-                        default=[],
-                        help='Subgroup of checks to run')
-    parser.add_argument('--tables_to_include',
-                        nargs="*",
-                        default=[],
-                        help="Subgroup of OMOP tables to include in checks")
-    parser.add_argument('--sql_only', action='store_true')
+
+    common_args = [(('output_folder', ), {
+        'help': 'Folder to save DQD output'
+    }),
+                   (('--check_names', ), {
+                       'nargs': "*",
+                       'choices': list(check_descriptions['checkName']),
+                       'default': [],
+                       'help': 'Subgroup of checks to run'
+                   }),
+                   (('--tables_to_include', ), {
+                       'nargs': "*",
+                       'default': [],
+                       'help': "Subgroup of OMOP tables to include in checks"
+                   }), (('--sql_only', ), {
+                       'action': 'store_true'
+                   })]
+
+    subparsers = parser.add_subparsers(
+        title='dbms',
+        description='Database Management System',
+        help='dbms',
+        dest='dbms')
+    subparsers_dict = {}
+    for supported_dbms in DBMS_NAMES:
+        subparser = subparsers.add_parser(supported_dbms)
+        subparsers_dict[supported_dbms] = subparser
+
+    for subparser_name in subparsers_dict:
+        if subparser_name in ['bigquery']:
+            subparsers_dict[subparser_name].add_argument(
+                'project_id', help='BigQuery project id')
+            subparsers_dict[subparser_name].add_argument(
+                'dataset_id', help='BigQuery dataset id')
+        elif subparser_name in ['sql_server', 'sqlite']:
+            subparsers_dict[subparser_name].add_argument(
+                'db_server', 'Database Server')
+            subparsers_dict[subparser_name].add_argument(
+                'database', 'Database Name')
+            subparsers_dict[subparser_name].add_argument(
+                'schema', 'Database Schema')
+            subparsers_dict[subparser_name].add_argument('user',
+                                                         help='Database User')
+            subparsers_dict[subparser_name].add_argument('--port',
+                                                         help='Database port')
+            subparsers_dict[subparser_name].add_argument(
+                '--pass', help='Database passwd')
+        else:
+            subparsers_dict[subparser_name].add_argument(
+                'db_server', 'Database Server')
+            subparsers_dict[subparser_name].add_argument(
+                'database', 'Database Name')
+            subparsers_dict[subparser_name].add_argument(
+                'schema', 'Database Schema')
+            subparsers_dict[subparser_name].add_argume
+            subparsers_dict[subparser_name].add_argument('user',
+                                                         help='Database User')
+            subparsers_dict[subparser_name].add_argument('--port',
+                                                         help='Database port')
+            subparsers_dict[subparser_name].add_argument(
+                '--passwd', help='Database passwd')
+        for common_arg in common_args:
+            subparsers_dict[subparser_name].add_argument(
+                *common_arg[0], **common_arg[1])
 
     args = parser.parse_args()
-    main(args.project_id,
-         args.dataset_id,
+
+    if args.dbms in ['bigquery']:
+        dbms_params = {
+            'project_id': args.project_id,
+            'dataset_id': args.dataset_id
+        }
+    elif args.dbms in ['sql_server', 'sqlite']:
+        dbms_params = {
+            'db_server': args.db_server,
+            'user': args.user,
+            'port': args.port,
+            'passwd': args.passwd
+        }
+    else:
+        dbms_params = {
+            'db_server': args.db_server,
+            'database': args.database,
+            'user': args.user,
+            'port': args.port,
+            'passwd': args.passwd,
+            'schema': args.schema
+        }
+
+    main(args.dbms,
+         args.dbms_params,
          output_folder=args.output_folder,
          check_names=args.check_names,
          tables_to_include=args.tables_to_include,
