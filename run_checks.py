@@ -1,18 +1,21 @@
-import pandas as pd
+# Python Imports
 from pathlib import Path
 from tqdm import tqdm
-from jinja2 import FileSystemLoader, Environment
 import re
-import time
 import logging
 from functools import reduce
-import numpy as np
 import json
 import datetime
 import argparse
+
+# Third-Party Imports
+import pandas as pd
+from jinja2 import FileSystemLoader, Environment
+import numpy as np
 from sqlalchemy import create_engine
 import sqlglot
 
+# Package Imports
 from db import DBMS_NAMES
 
 TEMPLATE_LOADER = FileSystemLoader(searchpath="./sql")
@@ -20,6 +23,13 @@ TEMPLATE_ENV = Environment(loader=TEMPLATE_LOADER)
 
 
 class DQD():
+    """Manager of the Data Quality Dashboard execution pipeline
+
+    Raises:
+        ValueError: Raised if a valid DBMS is not previded
+        ValueError: _description_
+
+    """
     _csv_dir = Path('csv')
 
     def __init__(self,
@@ -43,6 +53,7 @@ class DQD():
         self.check_names = check_names
         self.cdm_version = cdm_version
 
+        # Formate database connection string based on DBMS
         if dbms == 'bigquery':
             conn_string = f'bigquery://{dbms_params["project_id"]}'
             cdm_schema = f'{dbms_params["project_id"]}.{dbms_params["dataset_id"]}'
@@ -61,8 +72,15 @@ class DQD():
         self.vocab_schema = vocab_schema
 
     def execute(self, sql_only=False, write_to_csv=False):
+        """Executes the DQD pipeline
+
+        Args:
+            sql_only (bool, optional): Determines whether the DQD queries will be executed (False) or only formatted and saved (True). Defaults to False.
+            write_to_csv (bool, optional): Determines whether DQD results are also written to a CSV file. Defaults to False.
+        """
         logging.info('Beginning check execution')
         if not sql_only:
+            # Create SQLalchemy engine for executing queries
             self.engine = create_engine(self.conn_string)
 
         Path(self.output_folder).mkdir(exist_ok=True)
@@ -116,7 +134,7 @@ class DQD():
                 check_descriptions['checkName'].isin(self.check_names)]
 
         if len(check_descriptions) == 0:
-            print(
+            logging.info(
                 "No checks are available based on excluded tables. Please review tables_to_exclude."
             )
             exit(1)
@@ -126,6 +144,8 @@ class DQD():
         pbar = tqdm(list(check_descriptions.iterrows()), position=0)
         for _, check_description in pbar:
             pbar.set_description(f"{check_description['checkName']}")
+
+            # Run the DQ check
             result = self.run_check(check_description, table_checks,
                                     field_checks, concept_checks,
                                     self.cdm_schema, self.vocab_schema,
@@ -146,6 +166,7 @@ class DQD():
 
             delta = (end_time - start_time).seconds
 
+            # TODO: Remove this filler metadata and read from CDM Source table
             metadata = [{
                 "CDM_SOURCE_NAME": "All of Us EHR Ops",
                 "CDM_SOURCE_ABBREVIATION": "AoU",
@@ -171,6 +192,7 @@ class DQD():
                 'Metadata': metadata
             }
 
+            # Write DQD output to file
             self.write_results_to_json(all_results)
 
             if write_to_csv:
@@ -182,10 +204,29 @@ class DQD():
     def run_check(self, check_description, table_checks, field_checks,
                   concept_checks, cdm_database_schema, vocab_database_schema,
                   output_folder, sql_only):
+        """Run an individual Data Quality check
+
+        Args:
+            check_description (dict): A dictionary containing details about the check
+            table_checks (pandas.DataFrame): A dataframe containing tabel-level checks to run
+            field_checks (pandas.DataFrame): A dataframe containing field-level checks to run
+            concept_checks (pandas.DataFrame): A datafram contain concept-level checks to run
+            cdm_database_schema (str): Schema name of CDM tables
+            vocab_database_schema (str): Schema name of Vocab tables (often the same as cdm_database_schema)
+            output_folder (str): Output directory of DQD results
+            sql_only (bool): Determines if DQD queries or executed (False) or only formatted and output to files (True)
+
+        Raises:
+            ValueError: Raised if the checkLevel passed in is not one of ('TABLE', 'FIELD', 'CONCEPT)
+
+        Returns:
+            pandas.DataFrame: A Dataframe containing outcomes of DQ checks.
+        """
         sql_file = check_description['sqlFile']
 
         evaluation_filter = check_description['evaluationFilter']
 
+        # Execute evaluations as partial SQL
         if check_description['checkLevel'] == 'TABLE':
             checks = table_checks[table_checks.eval(f'{evaluation_filter}')]
         elif check_description['checkLevel'] == 'FIELD':
@@ -222,6 +263,7 @@ class DQD():
                                       check["conceptId"],
                                       check["unitConceptId"]), )
 
+                # Lower names of all expected variables of checks
                 lowered_variables = [
                     'cdmTableName', 'cdmFieldName', 'fkTableName',
                     'fkFieldName', 'standardConceptFieldName',
@@ -233,26 +275,28 @@ class DQD():
                               var[1].lower()) if var[0] in lowered_variables
                              and type(var[1]) == str else (var[0], var[1])
                              for var in variables]
-                variables = [
-                    (var[0],
-                     f"unioned_ehr_{var[1]}") if var[0] in ('cdmTableName',
-                                                            'fkTableName') else
-                    (var[0], var[1]) for var in variables
-                ]
+                # variables = [
+                #     (var[0],
+                #      f"unioned_ehr_{var[1]}") if var[0] in ('cdmTableName',
+                #                                             'fkTableName') else
+                #     (var[0], var[1]) for var in variables
+                # ]
+
+                # Render formatted JINJA-templated queries with variables.
 
                 sql = template.render(
                     cdmDatabaseSchema=f'"{cdm_database_schema.lower()}"',
                     vocabDatabaseSchema=f'"{vocab_database_schema.lower()}"',
                     **dict(variables))
 
+                # Use custom dialect to transpile input sql_server SQL to target DBMS
                 sql = sqlglot.transpile(sql,
                                         'tsql_extension',
                                         self.dbms,
                                         pretty=True)[0]
 
+                # TODO Determine if there is a better way to maintain semicolon of transpilation
                 sql = f"{sql}\n;\n"
-
-                # sql = sql.replace('_cdmDatabaseSchema_', f'{cdm_database_schema.lower()}').replace('_vocabDatabaseSchema_', )
 
                 if sql_only:
                     Path(output_folder).mkdir(exist_ok=True)
@@ -264,25 +308,36 @@ class DQD():
                     dfs.append(pd.DataFrame())
 
                 else:
+                    # Execute query and process results
                     dfs.append(
                         self.process_check(check, check_description, sql))
 
             return pd.concat(dfs)
         else:
-            print('Evaluation resulted in no checks, ', evaluation_filter)
+            logging.info('Evaluation resulted in no checks, ',
+                         evaluation_filter)
             return pd.DataFrame()
 
     def process_check(self, check, check_description, sql):
-        start = datetime.datetime.now()
-        # error_report_file = Path(
-        #     output_folder
-        # ) / f"{check_description['checkLevel']}_{check_description['checkName']}_{check['cdmTableName']}_{check['cdmFieldName']}.txt"
+        """Execute query check and process its results
 
+        Args:
+            check (pandas.Series): A pandas Series containing check information
+            check_description (pandas.Series): A pandas Series containing check information
+            sql (str): Formatted SQL query to execute
+
+        Returns:
+            pandas.DataFrame: DataFrame containing check results
+        """
+        start = datetime.datetime.now()
+
+        # TODO Report errors to a file
         error_report_file = Path(
             self.output_folder
         ) / f"{check_description['checkLevel']}_{check_description['checkName']}_{check['cdmTableName']}.txt"
 
         try:
+            # Execute query
             result = pd.read_sql(sql, self.engine)
             end = datetime.datetime.now()
             delta = (end - start).seconds
@@ -307,6 +362,21 @@ class DQD():
                       execution_time=None,
                       warning=None,
                       error=None):
+        """Records DQD results in format expected for processing
+
+        Args:
+            check (pandas.Series)
+            check_description (pandas.Series)
+            sql (str): Executed SQL query
+            result (pandas.DataFrame, optional): Results infomration. Defaults to None.
+            execution_time (int, optional): Elapsed time in seconds of execution. Defaults to None.
+            warning (str, optional): A warning encountered during execution. Defaults to None.
+            error (str, optional): An error encountered during execution. Defaults to None.
+
+        Returns:
+            pandas.DataFrame: DataFrame containing check results in expected format
+        """
+
         columns = check.index
         original_templated_check_description = check_description[
             'checkDescription']
@@ -382,6 +452,19 @@ class DQD():
                      cdm_field_name=None,
                      concept_id=None,
                      unit_concept_id=None):
+        """Create a unique check_id based on check attributes
+
+        Args:
+            check_level (str)
+            check_name (str)
+            cdm_table_name (str)
+            cdm_field_name (str, optional): Defaults to None.
+            concept_id (int, optional): Defaults to None.
+            unit_concept_id (int, optional):  Defaults to None.
+
+        Returns:
+            str: Concatenated string of check attributes
+        """
         items = [
             check_level, check_name, cdm_table_name, cdm_field_name,
             concept_id, unit_concept_id
@@ -417,7 +500,7 @@ class DQD():
             elif check_results.iloc[i]['CHECK_LEVEL'] == 'CONCEPT':
                 threshold_field_exists = threshold_field in concept_checks
             else:
-                print('Invalid check level')
+                logging.error('Invalid check level')
                 exit(1)
 
             if not threshold_field_exists:
@@ -711,7 +794,7 @@ class DQD():
         result_filename = Path(self.output_folder) / self.output_file
         result['outputFile'] = self.output_file
 
-        print(f"Writing results to {result_filename}")
+        logging.info(f"Writing results to {result_filename}")
         with open(result_filename, 'w') as f:
             # result.to_json(result_filename)
             json.dump(result, f, indent=4)
