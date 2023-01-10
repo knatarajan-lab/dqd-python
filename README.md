@@ -70,8 +70,8 @@ Clone the repository locally.
 **sql/**: Directory containing SQL queries for running DQD checks.
 
 **app/**: Directory containing static files for running web application
-
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **results.json**: Output file of DQD execution.\
+
 **db.py**: Helper module for standardizing database management.
 
 
