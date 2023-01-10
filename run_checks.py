@@ -11,26 +11,13 @@ import json
 import datetime
 import argparse
 from sqlalchemy import create_engine
+import sqlglot
+from db import TSQLExtension
 
 from db import DBMS_NAMES
 
 TEMPLATE_LOADER = FileSystemLoader(searchpath="./sql")
 TEMPLATE_ENV = Environment(loader=TEMPLATE_LOADER)
-
-# def _date_add_sql():
-#     def func(self, expression):
-#         this = self.sql(expression, "this")
-#         unit = self.sql(expression, "unit") or "'day'"
-#         expression = self.sql(expression, "expression")
-#         return f"{data_type}_{kind}({this}, INTERVAL {expression} {unit})"
-
-#     return func
-# class TSQLExtension(TSQL):
-#     class Generator(TSQL.Generator):
-#         TRANSFORMS = {
-#             **TSQL.Generator.TRANSFORMS,
-#             exp.DateAdd: _date_add_sql()
-#         }
 
 
 class DQD():
@@ -50,8 +37,6 @@ class DQD():
                  check_names=[],
                  cdm_version="5.3"):
 
-        self.cdm_schema = cdm_schema
-        self.vocab_schema = vocab_schema
         self.output_folder = output_folder
         self.output_file = output_file
         self.tables_to_include = tables_to_include
@@ -63,7 +48,7 @@ class DQD():
             conn_string = f'bigquery://{dbms_params["project_id"]}'
             cdm_schema = f'{dbms_params["project_id"]}.{dbms_params["dataset_id"]}'
             vocab_schema = cdm_schema
-        elif dbms == 'sql_server':
+        elif dbms == 'tsql':
             conn_string = f'mssql+pyodbc://{dbms_params["user"]}:{dbms_params["passwd"]}@{dbms_params["db_server"]}'
             cdm_schema = dbms_params['schema']
             vocab_schema = dbms_params['schema']
@@ -71,7 +56,6 @@ class DQD():
             raise ValueError(
                 f'DBMS not recognized. Must be one of: {DBMS_NAMES}')
 
-        self.engine = create_engine(conn_string)
         self.conn_string = conn_string
         self.dbms = dbms
         self.cdm_schema = cdm_schema
@@ -79,6 +63,8 @@ class DQD():
 
     def execute(self, sql_only=False, write_to_csv=False):
         logging.info('Beginning check execution')
+        if not sql_only:
+            self.engine = create_engine(self.conn_string)
 
         Path(self.output_folder).mkdir(exist_ok=True)
 
@@ -249,13 +235,18 @@ class DQD():
                              and type(var[1]) == str else (var[0], var[1])
                              for var in variables]
                 sql = template.render(
-                    cdmDatabaseSchema=f'{cdm_database_schema.lower()}',
-                    vocabDatabaseSchema=f'{vocab_database_schema.lower()}',
+                    cdmDatabaseSchema=f'"{cdm_database_schema.lower()}"',
+                    vocabDatabaseSchema=f'"{vocab_database_schema.lower()}"',
                     **dict(variables))
 
-                print(sql)
-                sql = sqlglot.transpile(sql, 'tsql', 'bigquery',
+                sql = sqlglot.transpile(sql,
+                                        'tsql_extension',
+                                        self.dbms,
                                         pretty=True)[0]
+
+                sql = f"{sql}\n;\n"
+
+                # sql = sql.replace('_cdmDatabaseSchema_', f'{cdm_database_schema.lower()}').replace('_vocabDatabaseSchema_', )
 
                 if sql_only:
                     Path(output_folder).mkdir(exist_ok=True)
@@ -778,27 +769,26 @@ if __name__ == '__main__':
                 'project_id', help='BigQuery project id')
             subparsers_dict[subparser_name].add_argument(
                 'dataset_id', help='BigQuery dataset id')
-        elif subparser_name in ['sql_server', 'sqlite']:
+        elif subparser_name in ['tsql', 'sqlite']:
             subparsers_dict[subparser_name].add_argument(
-                'db_server', 'Database Server')
+                'db_server', help='Database Server')
+            subparsers_dict[subparser_name].add_argument('database',
+                                                         help='Database Name')
             subparsers_dict[subparser_name].add_argument(
-                'database', 'Database Name')
-            subparsers_dict[subparser_name].add_argument(
-                'schema', 'Database Schema')
+                'schema', help='Database Schema')
             subparsers_dict[subparser_name].add_argument('user',
                                                          help='Database User')
             subparsers_dict[subparser_name].add_argument('--port',
                                                          help='Database port')
             subparsers_dict[subparser_name].add_argument(
-                '--pass', help='Database passwd')
+                '--passwd', help='Database passwd')
         else:
             subparsers_dict[subparser_name].add_argument(
-                'db_server', 'Database Server')
+                'db_server', help='Database Server')
+            subparsers_dict[subparser_name].add_argument('database',
+                                                         help='Database Name')
             subparsers_dict[subparser_name].add_argument(
-                'database', 'Database Name')
-            subparsers_dict[subparser_name].add_argument(
-                'schema', 'Database Schema')
-            subparsers_dict[subparser_name].add_argume
+                'schema', help='Database Schema')
             subparsers_dict[subparser_name].add_argument('user',
                                                          help='Database User')
             subparsers_dict[subparser_name].add_argument('--port',
@@ -816,12 +806,14 @@ if __name__ == '__main__':
             'project_id': args.project_id,
             'dataset_id': args.dataset_id
         }
-    elif args.dbms in ['sql_server', 'sqlite']:
+    elif args.dbms in ['tsql', 'sqlite']:
         dbms_params = {
             'db_server': args.db_server,
+            'database': args.database,
             'user': args.user,
             'port': args.port,
-            'passwd': args.passwd
+            'passwd': args.passwd,
+            'schema': args.schema
         }
     else:
         dbms_params = {
@@ -834,7 +826,7 @@ if __name__ == '__main__':
         }
 
     main(args.dbms,
-         args.dbms_params,
+         dbms_params,
          output_folder=args.output_folder,
          check_names=args.check_names,
          tables_to_include=args.tables_to_include,
