@@ -62,10 +62,15 @@ Clone the repository locally.
 ```
 
 **run_checks.py**: Entrypoint script that executes the DQD on an OMOP CDM instance.
+
 **r_to_python_sql_template.py**: A helper script for converting R-compatible templating used by official DQD to Python-compatible templating
+
 **csv/**: Directory containing instructions for running DQD checks.
+
 **sql/**: Directory containing SQL queries for running DQD checks.
+
 **app/**: Directory containing static files for running web application
+
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **results.json**: Output file of DQD execution.
 **db.py**: Helper module for standardizing database management.
 
