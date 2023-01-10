@@ -6,7 +6,7 @@ for persons in condition_occurrence table
 
 Parameters used in this template:
 cdmTableName = {{cdmTableName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -24,7 +24,7 @@ FROM
 		SELECT DISTINCT co.person_id
 		FROM
   	  	{{cdmDatabaseSchema}}.condition_occurrence co
-			{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+			{% if cohort and runForCohort == 'Yes' %}
     		JOIN {{cohortDatabaseSchema}}.COHORT c 
     		ON co.PERSON_ID = c.SUBJECT_ID
     		AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
@@ -40,7 +40,7 @@ FROM
 ( 
 	SELECT COUNT_BIG(DISTINCT person_id) AS num_rows
 	FROM {{cdmDatabaseSchema}}.condition_occurrence co
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON co.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

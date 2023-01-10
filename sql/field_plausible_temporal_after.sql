@@ -9,7 +9,7 @@ cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
 plausibleTemporalAfterTableName = {{plausibleTemporalAfterTableName}}
 plausibleTemporalAfterFieldName = {{plausibleTemporalAfterFieldName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -26,17 +26,17 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.*
     FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-    {% if {{cdmDatabaseSchema}}.{{cdmTableName}} != {{cdmDatabaseSchema}}.{{plausibleTemporalAfterTableName}} %}
+    {% if cdmDatabaseSchema.cdmTableName != cdmDatabaseSchema.plausibleTemporalAfterTableName %}
 		JOIN {{cdmDatabaseSchema}}.{{plausibleTemporalAfterTableName}} plausibleTable
 			ON cdmTable.person_id = plausibleTable.person_id{% endif %}   
             
-		{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+		{% if cohort and runForCohort == 'Yes' %}
     JOIN {{cohortDatabaseSchema}}.COHORT c 
       ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}{% endif %}   
             
     WHERE 
-    {% if '{{plausibleTemporalAfterTableName}}' == 'PERSON' %}
+    {% if plausibleTemporalAfterTableName == 'PERSON' %}
 		COALESCE(CAST(plausibleTable.{{plausibleTemporalAfterFieldName}} AS DATE),CAST(CONCAT(plausibleTable.YEAR_OF_BIRTH,'-06-01') AS DATE)) 
 	{% else %}
 		CAST(cdmTable.{{plausibleTemporalAfterFieldName}} AS DATE)
@@ -48,7 +48,7 @@ FROM
 (
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
   JOIN {{cohortDatabaseSchema}}.COHORT c 
     ON cdmTable.PERSON_ID = c.SUBJECT_ID
     AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}} {% endif %}   

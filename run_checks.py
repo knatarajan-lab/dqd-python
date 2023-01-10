@@ -12,7 +12,6 @@ import datetime
 import argparse
 from sqlalchemy import create_engine
 import sqlglot
-from db import TSQLExtension
 
 from db import DBMS_NAMES
 
@@ -125,7 +124,7 @@ class DQD():
         results_list = []
         logging.info('Running checks')
         pbar = tqdm(list(check_descriptions.iterrows()), position=0)
-        for i, check_description in pbar:
+        for _, check_description in pbar:
             pbar.set_description(f"{check_description['checkName']}")
             result = self.run_check(check_description, table_checks,
                                     field_checks, concept_checks,

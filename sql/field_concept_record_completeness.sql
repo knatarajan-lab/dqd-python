@@ -1,13 +1,13 @@
 /*********
 CONCEPT_RECORD_COMPLETENESS
-number of 0s / total number of records {% if {{cdmTableName}} == 'OBSERVATION' | {{cdmTableName}} == 'MEASUREMENT' %}* for the OBSERVATION.unit_concept_id and MEASUREMENT.unit_concept_id the numerator and denominator are limited to records where value_as_number IS NOT NULL{% endif %}   
+number of 0s / total number of records {% if cdmTableName == 'OBSERVATION' or cdmTableName == 'MEASUREMENT' %}* for the OBSERVATION.unit_concept_id and MEASUREMENT.unit_concept_id the numerator and denominator are limited to records where value_as_number IS NOT NULL{% endif %}   
             
 
 Parameters used in this template:
 cdmDatabaseSchema = {{cdmDatabaseSchema}}
 cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -24,13 +24,13 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.* 
 		FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-		{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+		{% if cohort and runForCohort == 'Yes' %}
   	JOIN {{cohortDatabaseSchema}}.COHORT c
   	ON cdmTable.PERSON_ID = c.SUBJECT_ID
   	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
   	{% endif %}   
             
-		WHERE cdmTable.{{cdmFieldName}} = 0 {% if {{cdmFieldName}} == 'UNIT_CONCEPT_ID' & ({{cdmTableName}} == 'MEASUREMENT' | {{cdmTableName}} == 'OBSERVATION') %}AND cdmTable.value_as_number IS NOT NULL{% endif %}   
+		WHERE cdmTable.{{cdmFieldName}} = 0 {% if cdmFieldName == 'UNIT_CONCEPT_ID' and (cdmTableName == 'MEASUREMENT' or cdmTableName == 'OBSERVATION') %}AND cdmTable.value_as_number IS NOT NULL{% endif %}   
             
 		/*violatedRowsEnd*/
 	) violated_rows
@@ -38,13 +38,13 @@ FROM
 ( 
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
   	JOIN {{cohortDatabaseSchema}}.COHORT c
   	ON cdmTable.PERSON_ID = c.SUBJECT_ID
   	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
   	{% endif %}   
             
-	{% if {{cdmFieldName}} == 'UNIT_CONCEPT_ID' & ({{cdmTableName}} == 'MEASUREMENT' | {{cdmTableName}} == 'OBSERVATION') %}WHERE cdmTable.value_as_number IS NOT NULL{% endif %}   
+	{% if cdmFieldName == 'UNIT_CONCEPT_ID' and (cdmTableName == 'MEASUREMENT' or cdmTableName == 'OBSERVATION') %}WHERE cdmTable.value_as_number IS NOT NULL{% endif %}   
             
 ) denominator
 ;

@@ -8,7 +8,7 @@
  cdmFieldName = {{cdmFieldName}}
  conceptId = {{conceptId}}
  plausibleUnitConceptIds = {{plausibleUnitConceptIds}}
- {% if {{cohort}} %}
+ {% if cohort %}
  cohortDefinitionId = {{cohortDefinitionId}}
  cohortDatabaseSchema = {{cohortDatabaseSchema}}
  {% endif %}   
@@ -31,13 +31,13 @@ FROM
 				SELECT
 					m.*
 				FROM
-					{{cdmDatabaseSchema}}. {{cdmTableName}} m {% if  {{cohort}}  %}
+					{{cdmDatabaseSchema}}. {{cdmTableName}} m {% if  cohort  %}
 					JOIN {{cohortDatabaseSchema}}.COHORT c ON m.PERSON_ID = c.SUBJECT_ID
 					AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}} {% endif %}   
             
 				WHERE
 					m.{{cdmFieldName}} = {{conceptId}}
-					AND {% if  {{plausibleUnitConceptIds}} == '' | {{plausibleUnitConceptIds}} == 'NA'  %} m.unit_concept_id IS NOT NULL {% else %} m.unit_concept_id NOT IN ({{plausibleUnitConceptIds}}) {% endif %}   
+					AND {% if  plausibleUnitConceptIds == '' or plausibleUnitConceptIds == 'NA'  %} m.unit_concept_id IS NOT NULL {% else %} m.unit_concept_id NOT IN ({{plausibleUnitConceptIds}}) {% endif %}   
             
 					AND m.value_as_number IS NOT NULL
 					AND (
@@ -51,7 +51,7 @@ FROM
 		SELECT
 			COUNT_BIG(*) AS num_rows
 		FROM
-			{{cdmDatabaseSchema}}. {{cdmTableName}} m {% if  {{cohort}}  %}
+			{{cdmDatabaseSchema}}. {{cdmTableName}} m {% if  cohort  %}
 			JOIN {{cohortDatabaseSchema}}.COHORT c ON m.PERSON_ID = c.SUBJECT_ID
 			AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}} {% endif %}   
             

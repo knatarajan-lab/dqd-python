@@ -5,7 +5,15 @@ R_SQL_DIR = "./DataQualityDashboard/inst/sql/sql_server"
 
 
 def repl_fn(full_clause):
+    template_var_ptn = "[\'\"]?@(\w+)[\'\"]?"
+
     condition_clause = full_clause.group(1)
+    condition_clause = re.sub(template_var_ptn, lambda s: f"{s.group(1)}",
+                              condition_clause)
+    condition_clause = re.sub('(\s+)(\&)(\s+)', r'\1and\3', condition_clause)
+    condition_clause = re.sub('(\s+)(\|)(\s+)', r'\1or\3', condition_clause)
+    condition_clause = re.sub('(\s+)(IN)(\s+)', r'\1in\3', condition_clause)
+
     if_clause = full_clause.group(2)
     else_clause = full_clause.group(3) if len(
         full_clause.groups()) == 3 else None

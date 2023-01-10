@@ -9,7 +9,7 @@ cdmDatabaseSchema = {{cdmDatabaseSchema}}
 vocabDatabaseSchema = {{vocabDatabaseSchema}}
 cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -26,7 +26,7 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.* 
 		  FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-		  {% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+		  {% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
@@ -40,7 +40,7 @@ FROM
 ( 
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

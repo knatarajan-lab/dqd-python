@@ -8,7 +8,7 @@ cdmDatabaseSchema = {{cdmDatabaseSchema}}
 cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
 plausibleValueHigh = {{plausibleValueHigh}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -25,13 +25,13 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.*
     from {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-    {% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+    {% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
     	{% endif %}   
             
-    {% if {{cdmDatatype}} == "datetime" | {{cdmDatatype}} == "date" %}
+    {% if cdmDatatype == "datetime" or cdmDatatype == "date" %}
       where cast(cdmTable.{{cdmFieldName}} as date) > cast({{plausibleValueHigh}} as date)
     {% else %}
       where cdmTable.{{cdmFieldName}} > {{plausibleValueHigh}}
@@ -43,7 +43,7 @@ FROM
 (
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

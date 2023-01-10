@@ -9,7 +9,7 @@ cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
 conceptId = {{conceptId}}
 plausibleGender = {{plausibleGender}}
-{% if {{cohort}} %}
+{% if cohort %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -30,14 +30,14 @@ FROM
 			INNER JOIN {{cdmDatabaseSchema}}.person p
 			ON cdmTable.person_id = p.person_id
 			
-			{% if {{cohort}} %}
+			{% if cohort %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
     	{% endif %}   
             
 		WHERE cdmTable.{{cdmFieldName}} = {{conceptId}}
-		AND p.gender_concept_id <> {% if {{plausibleGender}} == 'Male' %}8507{% else %}8532{% endif %}   
+		AND p.gender_concept_id <> {% if plausibleGender == 'Male' %}8507{% else %}8532{% endif %}   
              
 		/*violatedRowsEnd*/
 	) violated_rows
@@ -46,7 +46,7 @@ FROM
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
 	
-	{% if {{cohort}} %}
+	{% if cohort %}
 	JOIN {{cohortDatabaseSchema}}.COHORT c
 	ON cdmTable.PERSON_ID = c.SUBJECT_ID
 	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

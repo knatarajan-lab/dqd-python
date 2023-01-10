@@ -10,7 +10,7 @@ cdmFieldName = {{cdmFieldName}}
 conceptId = {{conceptId}}
 unitConceptId = {{unitConceptId}}
 plausibleValueHigh = {{plausibleValueHigh}}
-{% if {{cohort}} %}
+{% if cohort %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -28,7 +28,7 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT m.* 
 		FROM {{cdmDatabaseSchema}}.{{cdmTableName}} m
-		{% if {{cohort}} %}
+		{% if cohort %}
   	JOIN {{cohortDatabaseSchema}}.COHORT c
   	ON m.PERSON_ID = c.SUBJECT_ID
   	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
@@ -44,7 +44,7 @@ FROM
 ( 
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} m
-	{% if {{cohort}} %}
+	{% if cohort %}
 	JOIN {{cohortDatabaseSchema}}.COHORT c
 	ON m.PERSON_ID = c.SUBJECT_ID
 	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

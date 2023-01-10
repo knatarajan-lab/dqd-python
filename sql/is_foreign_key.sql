@@ -5,13 +5,13 @@ Foreign key check
 
 Parameters used in this template:
 cdmDatabaseSchema = {{cdmDatabaseSchema}}
-{% if '{{fkTableName}}' IN ('CONCEPT','DOMAIN') %}vocabDatabaseSchema = {{vocabDatabaseSchema}}{% endif %}   
+{% if fkTableName in ('CONCEPT','DOMAIN') %}vocabDatabaseSchema = {{vocabDatabaseSchema}}{% endif %}   
             
 cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
 fkTableName = {{fkTableName}}
 fkFieldName = {{fkFieldName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -29,13 +29,13 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.* 
 		FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-		{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+		{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
     	{% endif %}   
             
-		LEFT JOIN {% if '{{fkTableName}}' IN ('CONCEPT','DOMAIN') %}{{vocabDatabaseSchema}}.{{fkTableName}}{% else %}{{cdmDatabaseSchema}}.{{fkTableName}}{% endif %}   
+		LEFT JOIN {% if fkTableName in ('CONCEPT','DOMAIN') %}{{vocabDatabaseSchema}}.{{fkTableName}}{% else %}{{cdmDatabaseSchema}}.{{fkTableName}}{% endif %}   
              fkTable
 		ON cdmTable.{{cdmFieldName}} = fkTable.{{fkFieldName}}
 		WHERE fkTable.{{fkFieldName}} IS NULL AND cdmTable.{{cdmFieldName}} IS NOT NULL
@@ -45,7 +45,7 @@ FROM
 ( 
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

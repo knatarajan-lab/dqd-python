@@ -7,7 +7,7 @@ cdmDatabaseSchema = {{cdmDatabaseSchema}}
 cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
 standardConceptFieldName = {{standardConceptFieldName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -24,7 +24,7 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT DISTINCT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.{{cdmFieldName}}
 		FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-		{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+		{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}
@@ -37,7 +37,7 @@ FROM
 ( 
 	SELECT COUNT_BIG(distinct cdmTable.{{cdmFieldName}}) + COUNT(DISTINCT CASE WHEN cdmTable.{{cdmFieldName}} IS NULL THEN 1 END)  AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
     	JOIN {{cohortDatabaseSchema}}.COHORT c 
     	ON cdmTable.PERSON_ID = c.SUBJECT_ID
     	AND c.COHORT_DEFINITION_ID = {{cohortDefinitionId}}

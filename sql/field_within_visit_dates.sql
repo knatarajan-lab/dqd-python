@@ -6,7 +6,7 @@ Parameters used in this template:
 cdmDatabaseSchema = {{cdmDatabaseSchema}}
 cdmTableName = {{cdmTableName}}
 cdmFieldName = {{cdmFieldName}}
-{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+{% if cohort and runForCohort == 'Yes' %}
 cohortDefinitionId = {{cohortDefinitionId}}
 cohortDatabaseSchema = {{cohortDatabaseSchema}}
 {% endif %}   
@@ -25,7 +25,7 @@ FROM
 		/*violatedRowsBegin*/
 		SELECT '{{cdmTableName}}.{{cdmFieldName}}' AS violating_field, cdmTable.*
           FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-          {% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+          {% if cohort and runForCohort == 'Yes' %}
     	  JOIN {{cohortDatabaseSchema}}.cohort c 
     	    ON cdmTable.person_id = c.subject_id
     	   AND c.cohort_definition_id = {{cohortDefinitionId}}
@@ -41,7 +41,7 @@ FROM
 (
 	SELECT COUNT_BIG(*) AS num_rows
 	FROM {{cdmDatabaseSchema}}.{{cdmTableName}} cdmTable
-	{% if {{cohort}} & '{{runForCohort}}' == 'Yes' %}
+	{% if cohort and runForCohort == 'Yes' %}
     JOIN {{cohortDatabaseSchema}}.cohort c 
       ON cdmTable.person_id = c.subject_id
      AND c.cohort_definition_id = {{cohortDefinitionId}}
