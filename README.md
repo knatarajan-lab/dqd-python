@@ -71,7 +71,7 @@ Clone the repository locally.
 
 **app/**: Directory containing static files for running web application
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **results.json**: Output file of DQD execution.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **results.json**: Output file of DQD execution.\
 **db.py**: Helper module for standardizing database management.
 
 
