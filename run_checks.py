@@ -26,7 +26,7 @@ class DQD():
                  dbms,
                  dbms_params,
                  output_folder="output",
-                 output_file="result.json",
+                 output_file="results.json",
                  tables_to_include=[],
                  tables_to_exclude=[
                      'CONCPT', 'VOCABULARY', 'CONCEPT_ANCESTOR',
@@ -223,8 +223,8 @@ class DQD():
                                       check["unitConceptId"]), )
 
                 lowered_variables = [
-                    'cdmTableName', 'cdmFieldName', 'conceptPrefix',
-                    'fkTableName', 'fkFieldName', 'standardConceptFieldName',
+                    'cdmTableName', 'cdmFieldName', 'fkTableName',
+                    'fkFieldName', 'standardConceptFieldName',
                     'plausibleTemporalAfterTableName',
                     'plausibleTemporalAfterFieldName'
                 ]
@@ -233,6 +233,13 @@ class DQD():
                               var[1].lower()) if var[0] in lowered_variables
                              and type(var[1]) == str else (var[0], var[1])
                              for var in variables]
+                variables = [
+                    (var[0],
+                     f"unioned_ehr_{var[1]}") if var[0] in ('cdmTableName',
+                                                            'fkTableName') else
+                    (var[0], var[1]) for var in variables
+                ]
+
                 sql = template.render(
                     cdmDatabaseSchema=f'"{cdm_database_schema.lower()}"',
                     vocabDatabaseSchema=f'"{vocab_database_schema.lower()}"',
@@ -386,7 +393,7 @@ class DQD():
 
         return '_'.join(items).lower()
 
-    def _evaluate_thresholds(check_results, table_checks, field_checks,
+    def _evaluate_thresholds(self, check_results, table_checks, field_checks,
                              concept_checks):
         check_results.reset_index(inplace=True, drop=True)
         check_results = check_results.replace(r'^\s*$', np.nan, regex=True)
@@ -712,7 +719,8 @@ class DQD():
 
 def main(dbms,
          dbms_conn_params,
-         output_folder,
+         output_folder="app/",
+         output_file="results.json",
          check_names=[],
          tables_to_include=[],
          sql_only=False):
@@ -720,6 +728,7 @@ def main(dbms,
     dqd = DQD(dbms,
               dbms_conn_params,
               output_folder=output_folder,
+              output_file=output_file,
               check_names=check_names,
               tables_to_include=tables_to_include)
 
@@ -735,9 +744,16 @@ if __name__ == '__main__':
         description=
         'Execute the OHDSI Data Quality Dashboard on an OMOP instance')
 
-    common_args = [(('output_folder', ), {
+    common_args = [(('--output_folder', ), {
+        'default': 'app/',
+        'required': False,
         'help': 'Folder to save DQD output'
     }),
+                   (('--output_file', ), {
+                       'default': 'results.json',
+                       'required': False,
+                       'help': 'Name of output json file to save results.'
+                   }),
                    (('--check_names', ), {
                        'nargs': "*",
                        'choices': list(check_descriptions['checkName']),
@@ -827,6 +843,7 @@ if __name__ == '__main__':
     main(args.dbms,
          dbms_params,
          output_folder=args.output_folder,
+         output_file=args.output_file,
          check_names=args.check_names,
          tables_to_include=args.tables_to_include,
          sql_only=args.sql_only)
