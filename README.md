@@ -83,7 +83,7 @@ pip install -r requirements.txt
 ```
 2. Install http-server for static file rendering.
 ```bash
-npm install -g requirements.txt
+npm install -g http-server
 ```
 3. The script `run_checks.py` is the entry point. View command line parameters for the DBMS hosting OMOP CDM instance. E.g. for a BigQuery instance:
 ```
